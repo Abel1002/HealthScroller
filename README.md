@@ -44,6 +44,97 @@ Ideas clave:
   el modelo pide `{"herramienta": ..., "argumentos": ...}`, Python ejecuta y
   devuelve el resultado.
 
+## ¿Por qué un executor propio? create_react_agent vs AgenteHerramientas
+
+En un proyecto estándar de LangGraph (cuando se utiliza un modelo con soporte nativo de *tool-calling* como OpenAI, Claude o modelos más grandes de Ollama como `llama3` o `mistral`), **no hace falta programar a mano el bucle de herramientas, el parseador de JSON ni el reintento de errores**.
+
+Todo el archivo `executor.py` (o la función que define al especialista) se reduce a unas pocas líneas usando la función preconstruida `create_react_agent` de `langgraph.prebuilt`.
+
+Aquí tienes un ejemplo de código de cómo luciría normalmente ese módulo:
+
+```python
+"""
+Ejemplo estándar de cómo funcionaría executor.py (o la fábrica del especialista)
+utilizando la abstracción preconstruida de LangGraph: create_react_agent.
+"""
+
+from typing import List
+from langchain_core.tools import BaseTool
+from langchain_core.messages import SystemMessage
+from langchain_ollama import ChatOllama
+from langgraph.prebuilt import create_react_agent
+
+from health_scroller.config import OLLAMA_BASE_URL, OLLAMA_MODEL, TEMPERATURA
+
+
+def crear_agente_especialista(prompt_sistema: str, tools: List[BaseTool]):
+    """
+    Crea un agente ReAct compilado directamente como un ejecutable de LangGraph.
+
+    `create_react_agent` se encarga automáticamente de:
+      1. Asociar las tools al LLM vía 'bind_tools'.
+      2. Invocar al modelo y detectar si solicita ejecutar una herramienta de forma nativa.
+      3. Ejecutar la función Python correspondiente.
+      4. Devolver la ToolMessage al modelo y cerrar el bucle cuando llega a la respuesta final.
+    """
+
+    # 1. Instanciamos el cliente del LLM
+    # (En un escenario estándar, este modelo soporta llamadas a funciones en su API)
+    llm = ChatOllama(
+        base_url=OLLAMA_BASE_URL,
+        model=OLLAMA_MODEL,
+        temperature=TEMPERATURA
+    )
+
+    # 2. Creamos el agente ReAct listo para usar.
+    # En versiones modernas de LangGraph, las instrucciones del sistema se pasan
+    # mediante el parámetro 'prompt' (o state_modifier).
+    agente_compilado = create_react_agent(
+        model=llm,
+        tools=tools,
+        prompt=SystemMessage(content=prompt_sistema)
+    )
+
+    return agente_compilado
+
+
+# =====================================================================
+# Ejemplo de uso / integración con el grafo principal:
+# =====================================================================
+if __name__ == "__main__":
+    from health_scroller.tools.stats_tools import resumen_estadistico, media_por_grupo
+
+    prompt_ejemplo = "Eres el agente estadístico. Usa tus herramientas para contestar con datos exactos."
+    mis_tools = [resumen_estadistico, media_por_grupo]
+
+    # Creamos el nodo/agente
+    agente = crear_agente_especialista(prompt_ejemplo, mis_tools)
+
+    # La firma de invocación acepta un diccionario con la lista de mensajes (MessagesState)
+    entrada = {
+        "messages": [("user", "¿Cuál es la media de GPA por plataforma?")]
+    }
+
+    # El bucle ReAct completo se ejecuta internamente
+    resultado = agente.invoke(entrada)
+
+    # Obtenemos la respuesta final del agente
+    respuesta_final = resultado["messages"][-1].content
+    print(respuesta_final)
+```
+
+---
+
+### ¿Por qué en tu proyecto se tuvo que crear un `executor.py` personalizado en lugar de esto?
+
+Tal y como se detalla en la documentación técnica (ver `DOCUMENTACION.md`, sección 4.3):
+
+| Característica | Con `create_react_agent` nativo | Con el `executor.py` propio (`AgenteHerramientas`) |
+| --- | --- | --- |
+| **Soporte de Tool Calling** | Requiere que el modelo devuelva llamadas a funciones nativas en los metadatos del mensaje. | Trabaja con **texto plano**. El modelo solo escribe un bloque de texto que contiene un JSON. |
+| **Modelo compatible** | Modelos grandes (`gpt-4o`, `claude-3-5`, `llama3:8b`). | Permite usar **modelos muy pequeños y rápidos como `gemma3:1b`**. |
+| **Manejo de errores** | Si el modelo formatea mal la llamada, la librería suele lanzar excepciones de parseo. | `extraer_llamada_json` busca llaves balanceadas, convierte strings a tipos numéricos y devuelve mensajes amables para que el LLM reintente. |
+
 ## Estructura del proyecto
 
 ```
