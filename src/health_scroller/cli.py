@@ -11,7 +11,6 @@ import urllib.request
 from langchain_core.messages import HumanMessage
 
 from .config import OLLAMA_BASE_URL, OLLAMA_MODEL
-from .graph import crear_grafo
 
 # Consolas Windows (cp1252) no soportan emojis: mostramos texto sin romper el chat
 try:
@@ -57,7 +56,20 @@ def main() -> None:
     print(BANNER)
     comprobar_ollama()
 
-    grafo, agentes = crear_grafo()
+    # Los prompts de los agentes necesitan el briefing del notebook.
+    # Si falta, se avisa con claridad en vez de mostrar un traceback.
+    try:
+        from .graph import crear_grafo
+
+        grafo, agentes = crear_grafo()
+    except FileNotFoundError as error:
+        print(f"\nERROR: {error}")
+        print("\nFalta outputs/analysis_results.json (lo genera el notebook).")
+        print("Ejecuta primero el paso 9 del README:")
+        print("  notebooks/clase2_health_scroller_analisis.ipynb -> Kernel > Restart & Run All")
+        print("Y vuelve a lanzar el chatbot.")
+        return
+
     historial: list = []
 
     while True:
