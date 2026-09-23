@@ -1,0 +1,19 @@
+# ============================================================
+# HealthScroller - Dependencias
+# (se instalan con: pip install -r requirements.txt)
+# ============================================================
+
+# --- Análisis de datos (notebook de clase) ---
+pandas>=2.2,<3
+numpy>=1.26,<3
+matplotlib>=3.8,<4
+seaborn>=0.13,<0.14
+
+# --- Notebook de clase (servidor de Jupyter) ---
+notebook>=7.2
+
+# --- Agentes: LangChain + LangGraph + Ollama ---
+langchain>=0.3,<0.4
+langchain-ollama>=0.3,<0.4
+langgraph>=0.3,<0.6
+python-dotenv>=1.0,<2
