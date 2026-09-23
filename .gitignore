@@ -10,6 +10,11 @@ dist/
 # Jupyter
 .ipynb_checkpoints/
 
+# Salidas generadas: analysis_results.json se crea al ejecutar el notebook,
+# nunca se sube a GitHub (outputs/.gitkeep solo mantiene la carpeta visible)
+outputs/*
+!outputs/.gitkeep
+
 # Entorno (contiene configuración local, nunca se sube)
 .env
 
